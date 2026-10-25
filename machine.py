@@ -77,6 +77,9 @@ class Machine:
         Moonraker answers once Klipper has *processed* the script: a G1 is
         answered when queued, so append M400 to wait for motion to finish.
         """
+        if self.state["online"] and self.state["klipper"] != "ready":
+            first = self.state["message"].split("\n")[0]
+            return False, f"Klipper {self.state['klipper']}: {first}"
         try:
             r = self._s.post(self.url + "/printer/gcode/script",
                              json={"script": script}, timeout=timeout)
