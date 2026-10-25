@@ -1,0 +1,5 @@
+flask
+requests
+minimalmodbus
+pyserial
+sparkfun-qwiic-nau7802

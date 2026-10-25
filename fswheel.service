@@ -1,0 +1,15 @@
+# User-level unit (no sudo needed):
+#   mkdir -p ~/.config/systemd/user && cp fswheel.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now fswheel
+[Unit]
+Description=fs_wheel friction surfacing control
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/fs_wheel
+ExecStart=%h/fs_wheel/venv/bin/python app.py 5000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
