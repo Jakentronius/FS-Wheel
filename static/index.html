@@ -135,6 +135,7 @@
       <label>travel mm/min <input type="number" data-p="travel_feed_mm_min" step="10"></label>
       <label>direction <select data-p="direction"><option>serpentine</option><option>same</option></select></label>
       <label>spindle off at end <select data-p="spindle_off_at_end"><option value="1">yes</option><option value="0">no</option></select></label>
+      <label title="Position mode: no engage, no force corrections, no retract. X stays where it is when you press Cycle Start; max force still faults.">hold X <input type="checkbox" data-p="hold_x" style="width:auto;height:22px"></label>
     </div>
     <div class="grid" style="margin-top:10px">
       <button class="big go" onclick="cycleStart()">Cycle Start</button>
@@ -189,7 +190,8 @@ function mdi() { const l = $('mdi').value.trim(); if (!l) return; logline('> ' +
 function params() {
   const p = {};
   document.querySelectorAll('#params [data-p]').forEach(el => {
-    const k = el.dataset.p; p[k] = (k === 'direction') ? el.value : parseFloat(el.value);
+    const k = el.dataset.p;
+    p[k] = el.type === 'checkbox' ? (el.checked ? 1 : 0) : (k === 'direction') ? el.value : parseFloat(el.value);
   });
   return p;
 }
@@ -201,6 +203,7 @@ function holdResume() { post(holding ? '/api/cycle/resume' : '/api/cycle/hold');
 function fill(sel, obj, attr) {
   document.querySelectorAll(sel).forEach(el => {
     const v = obj[el.dataset[attr]]; if (v === undefined) return;
+    if (el.type === 'checkbox') { el.checked = !!v; return; }
     el.value = (typeof v === 'boolean') ? (v ? '1' : '0') : v;
   });
 }

@@ -42,7 +42,10 @@ venv/bin/python app.py          # http://<pi>:5000
 - **Surfacing cycle** - parameters, Cycle Start / Feed Hold / Stop /
   Engage / Retract / Reset / E-STOP. Spindle rpm is derived from wheel
   diameter and surface speed. Stop and faults both retract −X first.
-  Feed Hold retracts; resume re-engages where it stopped.
+  Feed Hold retracts; resume re-engages where it stopped. **hold X**
+  (position mode) skips engage, force corrections and retract: X stays
+  where it was at Cycle Start and only Y/Z move; the max-force fault still
+  applies.
 - **Force loop** - kp, per-slice clamp, deadband, max force, slice time.
 
 Every cycle writes `logs/run_<timestamp>.csv` (parameters in `#` header

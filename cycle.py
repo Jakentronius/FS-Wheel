@@ -39,6 +39,7 @@ PARAMS = {                     # user-facing cycle parameters (defaults)
     "travel_feed_mm_min": 600.0,
     "direction": "serpentine",      # or "same"
     "spindle_off_at_end": True,
+    "hold_x": False,                # True: no engage / force loop / retract; X stays put
 }
 CONTROL = {                    # force-loop tuning (config.json "control")
     "kp_mm_per_g": 2e-5,       # X correction per gram of error, per slice
@@ -268,6 +269,9 @@ class Cycle:
         self.state = "engage"
         x0 = self.m.work[0]
         x = x0
+        if p["hold_x"]:                 # position mode: run from where X is
+            self._event(f"line {line}: hold X at {x:.3f} (no engage)")
+            return x
         self._g("G90")
         while True:
             self._check()
@@ -308,7 +312,7 @@ class Cycle:
             if f > c["max_force_g"]:
                 raise RuntimeError(f"force {f:.0f} g over max")
             err = p["force_g"] - f
-            if abs(err) > c["deadband_g"]:
+            if not p["hold_x"] and abs(err) > c["deadband_g"]:
                 dx = max(-c["x_step_max_mm"], min(c["x_step_max_mm"], c["kp_mm_per_g"] * err))
                 x = min(x_lim, x + dx)
             k += 1
@@ -335,6 +339,8 @@ class Cycle:
     def _retract(self):
         p = self.params
         self.state = "retract"
+        if p["hold_x"]:
+            return
         x = self.m.work[0] - p["backoff_mm"]
         self._x_cmd = x
         self._g(f"G90\nG1 X{x:.4f} F{p['travel_feed_mm_min']:g}\nM400")
