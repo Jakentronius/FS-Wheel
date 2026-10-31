@@ -41,7 +41,7 @@
 <body>
 
 <div id="status">
-  <span>Klipper: <b id="k-state">…</b></span>
+  <span>Klipper: <b id="k-state">…</b> <button id="btn-fwr" class="stop" style="display:none;padding:2px 8px" onclick="post('/api/firmware_restart')">Firmware Restart</button></span>
   <span>Homed: <b id="k-homed">…</b></span>
   <span>Cell: <b id="lc-state">…</b></span>
   <span>VFD: <b id="sp-state">…</b></span>
@@ -212,6 +212,7 @@ async function poll() {
     const m = s.machine, lc = s.loadcell, sp = s.spindle, cy = s.cycle;
     ['x','y','z'].forEach((a,i) => { $('w'+a).textContent = m.work[i].toFixed(3); $('m'+a).textContent = m.machine[i].toFixed(3); });
     $('k-state').textContent = m.klipper; cls($('k-state'), m.klipper === 'ready' ? 'ok' : 'bad');
+    $('btn-fwr').style.display = (m.online && m.klipper !== 'ready' && m.klipper !== 'startup') ? '' : 'none';
     $('k-homed').textContent = m.homed || 'none'; cls($('k-homed'), m.homed.length === 3 ? 'ok' : 'warn');
     const th = m.theta || {present:false};
     $('wt').textContent = th.present ? th.pos.toFixed(2) : '—';
