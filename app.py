@@ -23,6 +23,7 @@ DEFAULT_CONFIG = {
     "control": dict(cyc.CONTROL),
     "cycle": dict(cyc.PARAMS),
     "jog_feed_mm_min": 600.0,
+    "jog_theta_deg_s": 10.0,
 }
 
 
@@ -80,6 +81,7 @@ def api_status():
         "cycle": cycle.status(),
         "control": config["control"],
         "jog_feed_mm_min": config["jog_feed_mm_min"],
+        "jog_theta_deg_s": config["jog_theta_deg_s"],
     })
 
 
@@ -107,8 +109,13 @@ def api_jog():
         feed = float(d.get("feed", config["jog_feed_mm_min"]))
     except (TypeError, ValueError):
         return reply(False, "bad jog values")
-    if axis not in ("X", "Y", "Z") or dist == 0:
+    if axis not in ("X", "Y", "Z", "T") or dist == 0:
         return reply(False, "bad jog")
+    if axis == "T":                     # theta: degrees at deg/s via THETA_JOG macro
+        if not machine.has_theta:
+            return reply(False, "theta axis not configured in Klipper")
+        config["jog_theta_deg_s"] = feed
+        return reply(*machine.gcode(f"THETA_JOG D={dist:.4f} F={feed:g}"))
     config["jog_feed_mm_min"] = feed
     return reply(*machine.gcode(f"G91\nG1 {axis}{dist:.4f} F{feed:g}\nG90"))
 
@@ -126,9 +133,16 @@ def api_zero():
     """Mach3 'Zero X': make the current position 0 on that axis (G92)."""
     if cycle.running:
         return reply(False, "cycle running")
-    axes = "".join(a for a in str(body().get("axes", "")).upper() if a in "XYZ")
+    axes = "".join(a for a in str(body().get("axes", "")).upper() if a in "XYZT")
     if not axes:
         return reply(False, "no axis")
+    if "T" in axes:                     # theta has its own position register
+        if not machine.has_theta:
+            return reply(False, "theta axis not configured in Klipper")
+        ok, msg = machine.gcode("THETA_ZERO")
+        if not ok or axes == "T":
+            return reply(ok, msg)
+        axes = axes.replace("T", "")
     return reply(*machine.gcode("G92 " + " ".join(f"{a}0" for a in axes)))
 
 
@@ -161,6 +175,11 @@ def api_spindle():
 @app.post("/api/loadcell/tare")
 def api_tare():
     return reply(*loadcell.tare())
+
+
+@app.post("/api/loadcell/reconnect")
+def api_loadcell_reconnect():
+    return reply(*loadcell.reconnect())
 
 
 @app.post("/api/loadcell/calibrate")

@@ -31,7 +31,10 @@ venv/bin/python app.py          # http://<pi>:5000
 ## Page
 
 - **Position** - work and machine DRO, Zero X/Y/Z (G92), Home.
-- **Jog** - step jog on each axis.
+- **Jog** - step jog on each axis, plus θ (rotary tombstone, degrees) when
+  `[manual_stepper theta]` and the `THETA_JOG` / `THETA_ZERO` macros exist in
+  printer.cfg (see `klipper/theta.cfg`). θ has no home; "Zero θ" sets its
+  position register to 0 wherever it is.
 - **Force** - smoothed grams, Tare, one-point Calibrate with a known mass,
   EMA alpha. No automatic tare happens anywhere.
 - **Spindle** - rpm setpoint and readback from the VFD.

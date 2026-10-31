@@ -55,6 +55,7 @@
       <span class="ax">X</span><span class="val" id="wx">0.000</span><span class="mach" id="mx">0.000</span><button onclick="zero('X')">Zero X</button>
       <span class="ax">Y</span><span class="val" id="wy">0.000</span><span class="mach" id="my">0.000</span><button onclick="zero('Y')">Zero Y</button>
       <span class="ax">Z</span><span class="val" id="wz">0.000</span><span class="mach" id="mz">0.000</span><button onclick="zero('Z')">Zero Z</button>
+      <span class="ax">θ</span><span class="val" id="wt">—</span><span class="mach" id="mt">no driver</span><button onclick="zero('T')">Zero θ</button>
     </div>
     <div class="grid" style="margin-top:8px">
       <button onclick="home('XYZ')">Home All</button>
@@ -73,6 +74,11 @@
       <button onclick="jog('X',-1)">X−</button><button onclick="jog('X',1)">X+</button><span class="dim" style="align-self:center">force axis</span>
       <button onclick="jog('Y',-1)">Y−</button><button onclick="jog('Y',1)">Y+</button><span class="dim" style="align-self:center">traverse</span>
       <button onclick="jog('Z',-1)">Z−</button><button onclick="jog('Z',1)">Z+</button><span class="dim" style="align-self:center">stepover</span>
+      <button onclick="jog('T',-1)">θ−</button><button onclick="jog('T',1)">θ+</button><span class="dim" style="align-self:center">tombstone</span>
+    </div>
+    <div class="grid" style="margin-top:8px">
+      <label>θ step deg <select id="jog-tstep"><option>0.1</option><option>1</option><option selected>10</option><option>90</option></select></label>
+      <label>θ deg/s <input type="number" id="jog-tfeed" value="10" step="1" min="0.1"></label>
     </div>
   </div>
 
@@ -85,6 +91,7 @@
       <button onclick="post('/api/loadcell/calibrate',{grams:num('cal-g')})">Calibrate</button>
       <label>smooth α <input type="number" id="lc-alpha" step="0.01" min="0.01" max="1"></label>
       <button onclick="post('/api/loadcell/config',{smooth_alpha:num('lc-alpha')})">Set</button>
+      <button onclick="post('/api/loadcell/reconnect')" title="re-initialise the NAU7802 after re-wiring">Reconnect</button>
     </div>
   </div>
 
@@ -172,7 +179,10 @@ async function post(url, data) {
     const j = await r.json(); logline((j.ok ? '' : 'ERR ') + j.message); return j;
   } catch (e) { logline('ERR ' + e); }
 }
-function jog(axis, sign) { post('/api/jog', {axis, dist: sign*num('jog-step'), feed: num('jog-feed')}); }
+function jog(axis, sign) {
+  if (axis === 'T') post('/api/jog', {axis, dist: sign*num('jog-tstep'), feed: num('jog-tfeed')});
+  else post('/api/jog', {axis, dist: sign*num('jog-step'), feed: num('jog-feed')});
+}
 function home(axes) { post('/api/home', {axes}); }
 function zero(axes) { post('/api/zero', {axes}); }
 function mdi() { const l = $('mdi').value.trim(); if (!l) return; logline('> ' + l); post('/api/gcode', {line:l}); $('mdi').value=''; }
@@ -203,6 +213,9 @@ async function poll() {
     ['x','y','z'].forEach((a,i) => { $('w'+a).textContent = m.work[i].toFixed(3); $('m'+a).textContent = m.machine[i].toFixed(3); });
     $('k-state').textContent = m.klipper; cls($('k-state'), m.klipper === 'ready' ? 'ok' : 'bad');
     $('k-homed').textContent = m.homed || 'none'; cls($('k-homed'), m.homed.length === 3 ? 'ok' : 'warn');
+    const th = m.theta || {present:false};
+    $('wt').textContent = th.present ? th.pos.toFixed(2) : '—';
+    $('mt').textContent = th.present ? (th.enabled ? 'deg' : 'deg (off)') : 'no driver';
     $('k-msg').textContent = (m.klipper !== 'ready' && m.message) ? m.message.split('\n')[0] : '';
     $('lc-state').textContent = lc.ok ? `${lc.hz} Hz` : (lc.error || 'offline'); cls($('lc-state'), lc.ok ? 'ok' : 'bad');
     $('lc-g').textContent = lc.ok ? lc.grams.toFixed(0) : '—';
@@ -217,7 +230,8 @@ async function poll() {
     $('cy-engage').textContent = cy.engage_x.length ? 'contact X per line: ' + cy.engage_x.join('  ') : '';
     holding = cy.state === 'hold'; $('btn-hold').textContent = holding ? 'Cycle Start (resume)' : 'Feed Hold';
     if (!filled) { fill('#params [data-p]', cy.params, 'p'); fill('#control [data-c]', s.control, 'c');
-                   $('lc-alpha').value = lc.smooth_alpha; $('jog-feed').value = s.jog_feed_mm_min; filled = true; }
+                   $('lc-alpha').value = lc.smooth_alpha; $('jog-feed').value = s.jog_feed_mm_min;
+                   $('jog-tfeed').value = s.jog_theta_deg_s; filled = true; }
   } catch (e) { $('k-state').textContent = 'no server'; cls($('k-state'), 'bad'); }
 }
 setInterval(poll, 200); poll();

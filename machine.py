@@ -15,7 +15,8 @@ MOONRAKER = "http://127.0.0.1:7125"
 POLL_S = 0.1
 QUERY = ("/printer/objects/query?gcode_move=gcode_position,position"
          "&toolhead=homed_axes&motion_report=live_position"
-         "&webhooks=state,state_message")
+         "&webhooks=state,state_message"
+         "&gcode_macro%20THETA_STATE=pos&stepper_enable=steppers")  # theta, optional
 
 
 class Machine:
@@ -26,6 +27,10 @@ class Machine:
         self.state = {
             "online": False, "klipper": "unknown", "message": "",
             "homed": "", "machine": [0.0, 0.0, 0.0], "work": [0.0, 0.0, 0.0],
+            # theta: rotary tombstone on a Klipper [manual_stepper theta]; its
+            # position lives in the THETA_STATE macro variable (klipper/theta.cfg).
+            # present=False until that config is included in printer.cfg.
+            "theta": {"present": False, "pos": 0.0, "enabled": False},
         }
 
     def start(self):
@@ -48,6 +53,13 @@ class Machine:
                     self.state["work"] = [round(l - o, 3)
                                           for l, o in zip(live[:3], off[:3])]
                 self.state["homed"] = st.get("toolhead", {}).get("homed_axes", "")
+                th = st.get("gcode_macro THETA_STATE") or {}
+                en = st.get("stepper_enable", {}).get("steppers", {})
+                self.state["theta"] = (
+                    {"present": True, "pos": round(float(th["pos"]), 3),
+                     "enabled": bool(en.get("manual_stepper theta", False))}
+                    if "pos" in th else
+                    {"present": False, "pos": 0.0, "enabled": False})
                 wh = st.get("webhooks", {})
                 self.state["klipper"] = wh.get("state", "?")
                 self.state["message"] = (wh.get("state_message") or "").strip()
@@ -70,6 +82,10 @@ class Machine:
     @property
     def work(self):
         return list(self.state["work"])
+
+    @property
+    def has_theta(self):
+        return self.state["theta"]["present"]
 
     def gcode(self, script, timeout=30.0):
         """Run a g-code script -> (ok, message).
