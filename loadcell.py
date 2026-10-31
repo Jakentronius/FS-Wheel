@@ -30,6 +30,7 @@ class LoadCell:
         self.hz = 0.0
         self.seq = 0
         self._running = True
+        self._reconnect = False
 
     def start(self):
         threading.Thread(target=self._loop, daemon=True).start()
@@ -61,14 +62,19 @@ class LoadCell:
 
     def _loop(self):
         while self._running:
+            self._reconnect = False
             scale = self._connect()
             if scale is None:
                 self.ok = False
-                time.sleep(RETRY_S)
+                for _ in range(int(RETRY_S * 10)):      # sleep, but wake on reconnect
+                    if self._reconnect or not self._running:
+                        break
+                    time.sleep(0.1)
                 continue
             self.ok, self.error = True, None
+            self.seq = 0            # re-seed the smoothed value
             n, t_win, t_last = 0, time.time(), time.time()
-            while self._running:
+            while self._running and not self._reconnect:
                 if scale.available():
                     raw = scale.get_reading()
                     g = self.to_grams(raw)
@@ -86,6 +92,13 @@ class LoadCell:
                     if time.time() - t_last > 3.0:      # stalled: reconnect
                         self.ok, self.error = False, "no samples for 3 s"
                         break
+
+    def reconnect(self):
+        """Drop the NAU7802 and re-initialise it (gain, LDO, AFE calibration)
+        without restarting the app. Use after re-wiring the cell."""
+        self.ok, self.error, self.hz = False, "reconnecting", 0.0
+        self._reconnect = True
+        return True, "load cell reconnecting"
 
     # ------------------------------------------------------------------ #
     def _avg_raw(self, n=40, timeout=2.0):
